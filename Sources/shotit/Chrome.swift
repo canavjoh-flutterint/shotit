@@ -40,6 +40,7 @@ struct ToolbarView: View {
                 .help("\(t.title)  \(String(t.key).uppercased())")
             }
             Divider().frame(height: 22).padding(.horizontal, 4)
+            GridButton(model: model)
             command("arrow.uturn.backward", "Undo  ⌘Z", #selector(CanvasView.undo(_:)))
             command("doc.on.doc", "Copy  ⌘C (Return copies and closes)", #selector(CanvasView.copy(_:)))
             command("square.and.arrow.down", "Save  ⌘S", #selector(CanvasView.saveDocument(_:)))
@@ -55,6 +56,48 @@ struct ToolbarView: View {
         }
         .buttonStyle(.plain)
         .help(help)
+    }
+}
+
+/// Grid toggle with a settings popover: show, spacing, and add to the image.
+private struct GridButton: View {
+    @ObservedObject var model: EditorModel
+    @State private var open = false
+
+    var body: some View {
+        let grid = model.doc.grid
+        Button { open.toggle() } label: {
+            Image(systemName: "grid")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(grid.visible ? accent : .primary)
+                .frame(width: 34, height: 32)
+                .overlay(alignment: .bottomTrailing) {
+                    Text("G").font(.system(size: 8, weight: .semibold)).foregroundStyle(.secondary)
+                        .padding(.trailing, 3).padding(.bottom, 2)
+                }
+                .background(RoundedRectangle(cornerRadius: 8).fill(grid.visible ? accent.opacity(0.18) : .clear))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Grid  G")
+        .popover(isPresented: $open, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Show grid", isOn: Binding(get: { model.doc.grid.visible }, set: { model.doc.grid.visible = $0 }))
+                Picker("Spacing", selection: Binding(get: { model.doc.grid.spacing }, set: { model.doc.grid.spacing = $0 })) {
+                    ForEach(ShotitCore.Grid.spacings, id: \.self) { Text("\(Int($0)) pt").tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Toggle("Add grid to image", isOn: Binding(get: { model.doc.grid.inExport },
+                                                          set: { model.doc.grid.inExport = $0 }))
+                    .disabled(!grid.visible)
+                Text("When on, Copy and Save include the grid lines.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .padding(14)
+            .frame(width: 260)
+        }
     }
 }
 

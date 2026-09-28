@@ -81,6 +81,17 @@ public struct EditState: Equatable {
     public var background: RGBA?
 }
 
+/// Grid spacing is in points and lines align with the image origin, so the grid measures image content.
+/// The export draws the grid only when it is also visible, so the export matches the screen.
+public struct Grid: Equatable {
+    public static let spacings: [CGFloat] = [8, 16, 32, 64]
+    public var visible = false
+    public var spacing: CGFloat = 16
+    public var inExport = false
+    public init() {}
+    public var exported: Bool { visible && inExport }
+}
+
 public struct Document {
     public let image: CGImage
     /// Image pixels per point (2 for a Retina screenshot).
@@ -90,6 +101,8 @@ public struct Document {
     public var frame: CGRect
     /// Fill for the area outside the image. `nil` is transparent.
     public var background: RGBA? = Palette.white
+    /// View setting, not part of undo.
+    public var grid = Grid()
 
     public init(image: CGImage, scale: CGFloat) {
         self.image = image

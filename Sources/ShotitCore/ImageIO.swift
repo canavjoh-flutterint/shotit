@@ -49,7 +49,7 @@ public enum Exporter {
         ctx.translateBy(x: 0, y: f.height)
         ctx.scaleBy(x: 1, y: -1)
         ctx.translateBy(x: -f.minX, y: -f.minY)
-        Renderer.draw(doc, in: ctx, pixelated: pixelated, clip: true)
+        Renderer.draw(doc, in: ctx, pixelated: pixelated, clip: true, grid: doc.grid.exported)
         return ctx.makeImage()
     }
 

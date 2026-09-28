@@ -65,7 +65,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func application(_ application: NSApplication, open urls: [URL]) { urls.forEach(open) }
 
-    @objc func captureRegion() { Capture.region { [weak self] in self?.show($0) } }
+    @objc func captureRegion() { Capture.region { [weak self] in self?.captured($0) } }
+
+    // MARK: Quick access
+
+    private static let openEditorKey = "openEditorAfterCapture"
+    private var openEditorAfterCapture: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.openEditorKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.openEditorKey) }
+    }
+
+    private var thumbnails: [ThumbnailController] = []
+    private let thumbnailGap: CGFloat = 4
+
+    /// A capture goes to the clipboard at once. Then it shows a thumbnail, or the editor when that option is on.
+    private func captured(_ img: LoadedImage) {
+        guard let png = Exporter.png(img.image, scale: img.scale) else { NSSound.beep(); return }
+        Exporter.copy(png)
+        if openEditorAfterCapture { show(img); return }
+
+        let thumb = ThumbnailController(img, png: png, onOpen: { [weak self] t in
+            self?.show(t.image)
+            t.close()
+        }, onClose: { [weak self] t in
+            self?.thumbnails.removeAll { $0 === t }
+            self?.layoutThumbnails(animated: true)
+        })
+        let area = thumbnailArea()
+        let cap = ThumbnailLayout.capacity(size: ThumbnailController.size, in: area, gap: thumbnailGap)
+        thumbnails.prefix(max(0, thumbnails.count - cap + 1)).forEach { $0.close() }
+        thumbnails.append(thumb)
+        layoutThumbnails(animated: true)
+        thumb.show()
+    }
+
+    /// The screen with the mouse, below the menu bar.
+    private func thumbnailArea() -> CGRect {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
+        return (screen?.visibleFrame ?? .zero).insetBy(dx: 8, dy: 0)
+    }
+
+    private func layoutThumbnails(animated: Bool) {
+        let frames = ThumbnailLayout.frames(count: thumbnails.count, size: ThumbnailController.size,
+                                            in: thumbnailArea(), gap: thumbnailGap)
+        for (t, f) in zip(thumbnails, frames) { t.place(f, animated: animated) }
+    }
+
+    @objc private func toggleOpenEditor(_ item: NSMenuItem) {
+        openEditorAfterCapture.toggle()
+        item.state = openEditorAfterCapture ? .on : .off
+    }
 
     @objc func editClipboard() {
         guard let img = ImageLoader.fromPasteboard() else { NSSound.beep(); return }
@@ -99,6 +149,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Capture Region   ⇧⌘2", action: #selector(captureRegion), keyEquivalent: "")
         menu.addItem(withTitle: "Edit Clipboard   ⇧⌘1", action: #selector(editClipboard), keyEquivalent: "")
         menu.addItem(withTitle: "Open Image…", action: #selector(openFile), keyEquivalent: "")
+        menu.addItem(.separator())
+        let openEditor = menu.addItem(withTitle: "Open Editor After Capture", action: #selector(toggleOpenEditor(_:)),
+                                      keyEquivalent: "")
+        openEditor.state = openEditorAfterCapture ? .on : .off
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit shotit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
         for i in menu.items where i.action != #selector(NSApplication.terminate(_:)) { i.target = self }
@@ -138,6 +192,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ("Zoom Out", #selector(CanvasView.zoomOut(_:)), "-", .command),
             ("Zoom to Fit", #selector(CanvasView.zoomToFit(_:)), "0", .command),
             ("Actual Size", #selector(CanvasView.zoomActual(_:)), "1", .command),
+            ("Show Grid", #selector(CanvasView.toggleGrid(_:)), "'", .command),
         ])
         // Menu items with no target go to the first responder. File > Open targets the app delegate.
         main.item(withTitle: "File")?.submenu?.item(withTitle: "Open…")?.target = self

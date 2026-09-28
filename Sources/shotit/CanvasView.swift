@@ -126,7 +126,8 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         ctx.fill(shown)
         ctx.restoreGState()
 
-        Renderer.draw(d, in: ctx, pixelated: model.hasBlur ? model.pixelated : nil, clip: !cropping, hiding: editingID)
+        Renderer.draw(d, in: ctx, pixelated: model.hasBlur ? model.pixelated : nil, clip: !cropping,
+                      grid: d.grid.visible, hiding: editingID)
 
         if cropping {
             let dim = CGMutablePath()
@@ -367,6 +368,8 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
             model.tool = t
         } else if ch == "e" {
             model.pad()
+        } else if ch == "g" {
+            model.doc.grid.visible.toggle()
         } else {
             super.keyDown(with: e)
         }
@@ -394,6 +397,7 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         window?.close()
     }
 
+    @objc func toggleGrid(_ sender: Any?) { model.doc.grid.visible.toggle() }
     @objc func undo(_ sender: Any?) { model.undo() }
     @objc func redo(_ sender: Any?) { model.redo() }
     @objc func delete(_ sender: Any?) { model.deleteSelection() }
@@ -417,6 +421,9 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         case #selector(undo(_:)): return model.canUndo
         case #selector(redo(_:)): return model.canRedo
         case #selector(delete(_:)), #selector(duplicate(_:)): return model.selection != nil
+        case #selector(toggleGrid(_:)):
+            item.state = model.doc.grid.visible ? .on : .off
+            return true
         default: return true
         }
     }

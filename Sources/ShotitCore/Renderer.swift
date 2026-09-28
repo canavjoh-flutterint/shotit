@@ -39,7 +39,8 @@ public enum Renderer {
         return CIContext().createCGImage(out, from: ci.extent, format: .RGBA8, colorSpace: image.colorSpace)
     }
 
-    public static func draw(_ doc: Document, in ctx: CGContext, pixelated: CGImage?, clip: Bool, hiding hidden: UUID? = nil) {
+    public static func draw(_ doc: Document, in ctx: CGContext, pixelated: CGImage?, clip: Bool, grid: Bool = false,
+                            hiding hidden: UUID? = nil) {
         ctx.saveGState()
         defer { ctx.restoreGState() }
         if clip {
@@ -50,6 +51,8 @@ public enum Renderer {
             }
         }
         drawImage(doc.image, in: doc.imageRect, ctx)
+        // Under the annotations, so it guides them and does not cover them.
+        if grid { drawGrid(doc, area: clip ? doc.frame : doc.frame.union(doc.imageRect), ctx) }
 
         let previous = NSGraphicsContext.current
         NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: true)
@@ -72,6 +75,35 @@ public enum Renderer {
             ctx.setFillColor(CGColor(gray: 0, alpha: 0.5))
             ctx.fillPath(using: .evenOdd)
         }
+    }
+
+    /// One-pixel lines on pixel centers, in Excalidraw violet. Every 4th line is stronger.
+    private static func drawGrid(_ doc: Document, area: CGRect, _ ctx: CGContext) {
+        let step = doc.grid.spacing * doc.scale
+        guard step >= 2 else { return }
+        let minor = CGMutablePath(), major = CGMutablePath()
+        var k = (area.minX / step).rounded(.up)
+        while k * step <= area.maxX {
+            let x = k * step + 0.5
+            let path = Int(k) % 4 == 0 ? major : minor
+            path.move(to: CGPoint(x: x, y: area.minY)); path.addLine(to: CGPoint(x: x, y: area.maxY))
+            k += 1
+        }
+        k = (area.minY / step).rounded(.up)
+        while k * step <= area.maxY {
+            let y = k * step + 0.5
+            let path = Int(k) % 4 == 0 ? major : minor
+            path.move(to: CGPoint(x: area.minX, y: y)); path.addLine(to: CGPoint(x: area.maxX, y: y))
+            k += 1
+        }
+        ctx.saveGState()
+        ctx.setLineWidth(1)
+        for (path, alpha) in [(minor, 0.28), (major, 0.55)] as [(CGPath, CGFloat)] {
+            ctx.setStrokeColor(CGColor(srgbRed: 0.41, green: 0.40, blue: 0.86, alpha: alpha))
+            ctx.addPath(path)
+            ctx.strokePath()
+        }
+        ctx.restoreGState()
     }
 
     static func drawImage(_ image: CGImage, in rect: CGRect, _ ctx: CGContext) {

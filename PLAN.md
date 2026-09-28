@@ -147,11 +147,18 @@ Done: phases 1 to 6 in a first version. See "Changes from the plan" and "Not don
 - The default tool is Arrow (Skitch style).
 - Single selection only.
 
+### Added after v1
+
+- Quick-access card after capture (top center, tilted, sketchy border, "copied" tag). Capture copies at once.
+  Click to annotate, drag out the file, hover for Annotate/Copy/Save/Close, closes after 10 s.
+  Menu option "Open Editor After Capture" skips it.
+- Grid (G, ⌘', toolbar popover): 8/16/32/64 pt, aligned to the image, major line every 4th.
+  "Add grid to image" puts it in the export, only while it is visible. Not part of undo. No snap to grid.
+
 ### Not done yet
 
 - Magnifier callout, custom ScreenCaptureKit overlay, configurable hotkeys, OCR, history.
-- Quick access thumbnail after capture.
-- Drag the image out of the window into another app.
+- Drag the image out of the editor window into another app (the card supports drag out).
 - Multi-select, copy and paste of annotations, custom color picker.
 - Launch at login.
 - Launch time and memory are not measured yet.

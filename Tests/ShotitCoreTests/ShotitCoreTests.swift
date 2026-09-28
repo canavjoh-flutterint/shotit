@@ -106,6 +106,77 @@ private func pixel(_ img: CGImage, _ x: Int, _ y: Int) -> [UInt8] {
     }
 }
 
+@Suite struct GridExport {
+    private func whiteDoc() -> Document {
+        let ctx = CGContext(data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0, space: sRGB,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: 64, height: 64))
+        var doc = Document(image: ctx.makeImage()!, scale: 1)
+        doc.grid.spacing = 16
+        return doc
+    }
+
+    // The grid is a view aid by default: showing it must not change the copied image.
+    @Test func visibleGridIsNotExportedByDefault() throws {
+        var doc = whiteDoc()
+        doc.grid.visible = true
+        let out = try #require(Exporter.render(doc, pixelated: nil))
+        #expect(pixel(out, 16, 5) == [255, 255, 255, 255])
+    }
+
+    // "Add grid to image" puts the lines into the export.
+    @Test func includedGridIsExported() throws {
+        var doc = whiteDoc()
+        doc.grid.visible = true
+        doc.grid.inExport = true
+        let out = try #require(Exporter.render(doc, pixelated: nil))
+        #expect(pixel(out, 16, 5) != [255, 255, 255, 255])
+        #expect(pixel(out, 8, 5) == [255, 255, 255, 255])
+    }
+
+    // The export matches the screen: a hidden grid is never exported, even when "include" is on.
+    @Test func hiddenGridIsNeverExported() throws {
+        var doc = whiteDoc()
+        doc.grid.inExport = true
+        let out = try #require(Exporter.render(doc, pixelated: nil))
+        #expect(pixel(out, 16, 5) == [255, 255, 255, 255])
+    }
+
+    // Lines stay on image pixels after extend, so the grid still measures the image content.
+    @Test func gridAlignsToImageAfterExtend() throws {
+        var doc = whiteDoc()
+        doc.grid.visible = true
+        doc.grid.inExport = true
+        doc.frame = doc.imageRect.insetBy(dx: -5, dy: -5)
+        let out = try #require(Exporter.render(doc, pixelated: nil))
+        #expect(pixel(out, 5 + 16, 20) != pixel(out, 5 + 15, 20))
+        #expect(pixel(out, 5 + 15, 20) == [255, 255, 255, 255])
+    }
+}
+
+@Suite struct Thumbnails {
+    private let area = CGRect(x: 0, y: 0, width: 1440, height: 875)
+    private let size = CGSize(width: 280, height: 250)
+
+    // Cards must sit at the top center, away from the macOS thumbnail at the bottom right.
+    @Test func singleCardIsTopCenter() {
+        let f = ThumbnailLayout.frames(count: 1, size: size, in: area)[0]
+        #expect(f.maxY == area.maxY)
+        #expect(abs(f.midX - area.midX) <= 1)
+    }
+
+    // Several cards must never cover each other or leave the screen.
+    @Test func cardsDoNotOverlapAndStayOnScreen() {
+        let n = ThumbnailLayout.capacity(size: size, in: area, gap: 4)
+        let frames = ThumbnailLayout.frames(count: n, size: size, in: area, gap: 4)
+        for (a, b) in zip(frames, frames.dropFirst()) { #expect(!a.intersects(b)) }
+        for f in frames { #expect(area.contains(f)) }
+        let tooMany = ThumbnailLayout.frames(count: n + 1, size: size, in: area, gap: 4)
+        #expect(!tooMany.allSatisfy { area.contains($0) })
+    }
+}
+
 @Suite struct Undo {
     // A plain click (checkpoint with no change) must not add an undo step.
     @Test func noOpEditAddsNoUndoStep() {

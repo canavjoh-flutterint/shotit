@@ -28,6 +28,24 @@ public extension CGRect {
     }
 }
 
+/// Quick-access cards sit in a centered row at the top of the screen, under the menu bar.
+/// This is away from the macOS screenshot thumbnail, which is at the bottom right.
+public enum ThumbnailLayout {
+    /// How many cards fit side by side in `area`.
+    public static func capacity(size: CGSize, in area: CGRect, gap: CGFloat) -> Int {
+        max(1, Int((area.width + gap) / (size.width + gap)))
+    }
+
+    /// Frames in AppKit screen coordinates (y points up), oldest on the left.
+    public static func frames(count: Int, size: CGSize, in area: CGRect, gap: CGFloat = 0) -> [CGRect] {
+        let total = CGFloat(count) * size.width + CGFloat(max(0, count - 1)) * gap
+        let x0 = (area.midX - total / 2).rounded()
+        return (0..<count).map {
+            CGRect(x: x0 + CGFloat($0) * (size.width + gap), y: area.maxY - size.height, width: size.width, height: size.height)
+        }
+    }
+}
+
 public func distance(_ p: CGPoint, toSegment a: CGPoint, _ b: CGPoint) -> CGFloat {
     let dx = b.x - a.x, dy = b.y - a.y
     let len2 = dx * dx + dy * dy
