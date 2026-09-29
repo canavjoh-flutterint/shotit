@@ -2,6 +2,16 @@
 
 A fast, small macOS screenshot editor. Capture or paste, annotate in Excalidraw style, copy back.
 
+[![Watch the 22-second showcase reel](docs/reel-poster.jpg)](docs/shotit-reel.mp4)
+
+Click the image to watch the 22-second showcase reel (720p MP4).
+
+![The editor with rectangle, step number, highlighter, arrow, blur, and text annotations](docs/editor.jpg)
+
+![Native Swift: 197 ms cold launch, 30 MB memory, 1.1 MB app bundle, no runtime dependencies](docs/performance.jpg)
+
+The images in this README are frames from the showcase reel.
+
 ## Build and run
 
 Needs macOS 14+ and Command Line Tools (full Xcode is not necessary).
@@ -35,6 +45,8 @@ build/shotit.app/Contents/MacOS/shotit path/to/image.png
 | ⌘S, ⌘Z, ⇧⌘Z, ⌘D, Delete, arrows | Save, undo, redo, duplicate, delete, nudge |
 
 ## Quick-access card
+
+![The quick-access card with a "copied" label after a capture](docs/card.jpg)
 
 After a capture, a tilted card drops in at the top center of the screen (the macOS thumbnail is at the
 bottom right). Click it to annotate. Drag it to drop the PNG file into another app. Point at it for
