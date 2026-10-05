@@ -12,6 +12,8 @@ let package = Package(
     targets: [
         .target(name: "ShotitCore"),
         .executableTarget(name: "shotit", dependencies: ["ShotitCore"]),
+        // Draws the app icon at bundle time. See scripts/bundle.py.
+        .executableTarget(name: "shotit-icon", dependencies: ["ShotitCore"]),
         .executableTarget(
             name: "shotit-tests", dependencies: ["ShotitCore"], path: "Tests/ShotitCoreTests",
             swiftSettings: [.unsafeFlags(["-F", "\(cltDev)/Frameworks"])],

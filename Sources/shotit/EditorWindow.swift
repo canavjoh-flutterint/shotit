@@ -18,7 +18,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let window = NSWindow(contentRect: CGRect(origin: .zero, size: size),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                               backing: .buffered, defer: false)
-        window.title = "shotit"
+        // Hidden in the title bar, but the Window menu and the Dock menu list editors by this title.
+        let f = DateFormatter()
+        f.dateFormat = "HH.mm.ss"
+        window.title = "Screenshot \(f.string(from: Date()))"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false

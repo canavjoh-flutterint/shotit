@@ -11,16 +11,19 @@ final class ThumbnailController {
 
     let image: LoadedImage
     private let png: Data
+    private let clipboardPNG: Data
     private let fileURL: URL
     private let panel: NSPanel
     private var timer: Timer?
     private let onOpen: (ThumbnailController) -> Void
     private let onClose: (ThumbnailController) -> Void
 
-    init(_ image: LoadedImage, png: Data, onOpen: @escaping (ThumbnailController) -> Void,
+    /// `png` is full size for the drag file and Save. `clipboardPNG` is what Copy puts on the clipboard.
+    init(_ image: LoadedImage, png: Data, clipboardPNG: Data, onOpen: @escaping (ThumbnailController) -> Void,
          onClose: @escaping (ThumbnailController) -> Void) {
         self.image = image
         self.png = png
+        self.clipboardPNG = clipboardPNG
         self.onOpen = onOpen
         self.onClose = onClose
 
@@ -79,7 +82,7 @@ final class ThumbnailController {
     }
 
     private func copy() {
-        Exporter.copy(png)
+        Exporter.copy(clipboardPNG)
         close()
     }
 

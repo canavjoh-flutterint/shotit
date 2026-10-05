@@ -45,7 +45,13 @@ enum Capture {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+enum Settings {
+    /// Copy a Retina image at 1 pixel per point. The PNG is about half the size, which is good for Slack.
+    static let copyAtPointSizeKey = "copyAtPointSize"
+    static var copyAtPointSize: Bool { UserDefaults.standard.bool(forKey: copyAtPointSizeKey) }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var statusItem: NSStatusItem?
     private var editors: [EditorWindowController] = []
 
@@ -65,6 +71,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func application(_ application: NSApplication, open urls: [URL]) { urls.forEach(open) }
 
+    /// A click on the Dock icon also shows minimized editors.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showEditors()
+        return false
+    }
+
     @objc func captureRegion() { Capture.region { [weak self] in self?.captured($0) } }
 
     // MARK: Quick access
@@ -80,11 +92,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// A capture goes to the clipboard at once. Then it shows a thumbnail, or the editor when that option is on.
     private func captured(_ img: LoadedImage) {
-        guard let png = Exporter.png(img.image, scale: img.scale) else { NSSound.beep(); return }
-        Exporter.copy(png)
+        guard let png = Exporter.png(img.image, scale: img.scale),
+              let clip = Settings.copyAtPointSize
+                  ? Exporter.clipboardPNG(img.image, scale: img.scale, pointSize: true) : png
+        else { NSSound.beep(); return }
+        Exporter.copy(clip)
         if openEditorAfterCapture { show(img); return }
 
-        let thumb = ThumbnailController(img, png: png, onOpen: { [weak self] t in
+        let thumb = ThumbnailController(img, png: png, clipboardPNG: clip, onOpen: { [weak self] t in
             self?.show(t.image)
             t.close()
         }, onClose: { [weak self] t in
@@ -117,6 +132,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.state = openEditorAfterCapture ? .on : .off
     }
 
+    @objc private func toggleCopyAtPointSize(_ item: NSMenuItem) {
+        UserDefaults.standard.set(!Settings.copyAtPointSize, forKey: Settings.copyAtPointSizeKey)
+        item.state = Settings.copyAtPointSize ? .on : .off
+    }
+
+    @objc func showEditors() {
+        guard !editors.isEmpty else { return }
+        NSApp.activate()
+        for e in editors {
+            e.window?.deminiaturize(nil)
+            e.window?.orderFront(nil)
+        }
+        editors.last?.window?.makeKeyAndOrderFront(nil)
+    }
+
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        item.action == #selector(showEditors) ? !editors.isEmpty : true
+    }
+
     @objc func editClipboard() {
         guard let img = ImageLoader.fromPasteboard() else { NSSound.beep(); return }
         show(img)
@@ -137,9 +171,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func show(_ img: LoadedImage) {
         let editor = EditorWindowController(img)
-        editor.onClose = { [weak self] e in self?.editors.removeAll { $0 === e } }
+        editor.onClose = { [weak self] e in
+            self?.editors.removeAll { $0 === e }
+            self?.updateActivationPolicy()
+        }
         editors.append(editor)
+        updateActivationPolicy()
         editor.show()
+    }
+
+    /// In the Dock and the Cmd-Tab switcher only while an editor is open, so an editor behind
+    /// other windows is easy to find. With no editor open, shotit is a menu bar app only.
+    private func updateActivationPolicy() {
+        NSApp.setActivationPolicy(editors.isEmpty ? .accessory : .regular)
     }
 
     private func setupStatusItem() {
@@ -149,10 +193,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Capture Region   ⇧⌘2", action: #selector(captureRegion), keyEquivalent: "")
         menu.addItem(withTitle: "Edit Clipboard   ⇧⌘1", action: #selector(editClipboard), keyEquivalent: "")
         menu.addItem(withTitle: "Open Image…", action: #selector(openFile), keyEquivalent: "")
+        menu.addItem(withTitle: "Show Editor Windows", action: #selector(showEditors), keyEquivalent: "")
         menu.addItem(.separator())
         let openEditor = menu.addItem(withTitle: "Open Editor After Capture", action: #selector(toggleOpenEditor(_:)),
                                       keyEquivalent: "")
         openEditor.state = openEditorAfterCapture ? .on : .off
+        let pointSize = menu.addItem(withTitle: "Copy at 1x Size (Smaller for Slack)",
+                                     action: #selector(toggleCopyAtPointSize(_:)), keyEquivalent: "")
+        pointSize.state = Settings.copyAtPointSize ? .on : .off
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit shotit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
         for i in menu.items where i.action != #selector(NSApplication.terminate(_:)) { i.target = self }
@@ -194,6 +242,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ("Actual Size", #selector(CanvasView.zoomActual(_:)), "1", .command),
             ("Show Grid", #selector(CanvasView.toggleGrid(_:)), "'", .command),
         ])
+        submenu("Window", [
+            ("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m", .command),
+            ("Bring All to Front", #selector(NSApplication.arrangeInFront(_:)), "", []),
+        ])
+        // AppKit adds a list of the open editor windows to this menu.
+        NSApp.windowsMenu = main.item(withTitle: "Window")?.submenu
         // Menu items with no target go to the first responder. File > Open targets the app delegate.
         main.item(withTitle: "File")?.submenu?.item(withTitle: "Open…")?.target = self
         return main

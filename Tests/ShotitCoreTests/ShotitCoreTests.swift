@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import ImageIO
 import Testing
 import ShotitCore
 
@@ -25,6 +26,10 @@ private func bytes(_ img: CGImage) -> [UInt8] {
                         space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
     ctx.draw(img, in: CGRect(x: 0, y: 0, width: img.width, height: img.height))
     return Array(UnsafeBufferPointer(start: ctx.data!.assumingMemoryBound(to: UInt8.self), count: img.width * img.height * 4))
+}
+
+private func pngProperties(_ png: Data) -> [CFString: Any]? {
+    CGImageSourceCreateWithData(png as CFData, nil).flatMap { CGImageSourceCopyPropertiesAtIndex($0, 0, nil) } as? [CFString: Any]
 }
 
 private func pixel(_ img: CGImage, _ x: Int, _ y: Int) -> [UInt8] {
@@ -79,6 +84,41 @@ private func pixel(_ img: CGImage, _ x: Int, _ y: Int) -> [UInt8] {
         let loaded = try #require(ImageLoader.load(data: png))
         #expect(loaded.scale == 2)
         #expect(loaded.image.width == 40)
+    }
+
+    // An opaque screenshot is pasted into Slack as-is, so its PNG must drop the unused alpha
+    // channel (smaller upload) and keep every pixel.
+    @Test func opaquePNGHasNoAlphaAndSamePixels() throws {
+        let src = makeImage()
+        let png = try #require(Exporter.png(src, scale: 2))
+        let loaded = try #require(ImageLoader.load(data: png))
+        #expect([.none, .noneSkipLast, .noneSkipFirst].contains(loaded.image.alphaInfo))
+        #expect(bytes(loaded.image) == bytes(src))
+    }
+
+    // A transparent padding or window shadow must keep its alpha in the PNG.
+    @Test func transparentPNGKeepsAlpha() throws {
+        var doc = Document(image: makeImage(), scale: 1)
+        doc.frame = doc.imageRect.insetBy(dx: -5, dy: -5)
+        doc.background = nil
+        let out = try #require(Exporter.render(doc, pixelated: nil))
+        let png = try #require(Exporter.png(out, scale: 1))
+        #expect(pngProperties(png)?[kCGImagePropertyHasAlpha] as? Bool == true)
+        let loaded = try #require(ImageLoader.load(data: png))
+        #expect(pixel(loaded.image, 0, 0)[3] == 0)
+    }
+
+    // "Copy at 1x Size" halves a Retina capture for a smaller Slack upload; off, the clipboard keeps full resolution.
+    @Test func clipboardPointSizeHalvesRetina() throws {
+        func copied(scale: CGFloat, pointSize: Bool) -> LoadedImage? {
+            Exporter.clipboardPNG(makeImage(), scale: scale, pointSize: pointSize).flatMap(ImageLoader.load(data:))
+        }
+        let small = try #require(copied(scale: 2, pointSize: true))
+        #expect(small.image.width == 20 && small.image.height == 15 && small.scale == 1)
+        let full = try #require(copied(scale: 2, pointSize: false))
+        #expect(full.image.width == 40 && full.scale == 2)
+        let oneX = try #require(copied(scale: 1, pointSize: true))
+        #expect(oneX.image.width == 40)
     }
 
     // Annotations must reach the export: a solid rect changes the pixels under it.

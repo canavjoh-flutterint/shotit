@@ -13,7 +13,8 @@ APP = ROOT / "build" / "shotit.app"
 
 
 def main() -> None:
-    subprocess.run(["swift", "build", "-c", "release", "--product", "shotit", "--package-path", str(ROOT)], check=True)
+    for product in ["shotit", "shotit-icon"]:
+        subprocess.run(["swift", "build", "-c", "release", "--product", product, "--package-path", str(ROOT)], check=True)
     bin_dir = subprocess.run(["swift", "build", "-c", "release", "--show-bin-path", "--package-path", str(ROOT)],
                              check=True, capture_output=True, text=True).stdout.strip()
 
@@ -23,11 +24,21 @@ def main() -> None:
     (APP / "Contents" / "Resources").mkdir()
     shutil.copy2(Path(bin_dir) / "shotit", APP / "Contents" / "MacOS" / "shotit")
 
+    # The Dock, the Cmd-Tab switcher, and Finder show this icon.
+    iconset = ROOT / "build" / "AppIcon.iconset"
+    if iconset.exists():
+        shutil.rmtree(iconset)
+    subprocess.run([str(Path(bin_dir) / "shotit-icon"), str(iconset)], check=True)
+    subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(APP / "Contents" / "Resources" / "AppIcon.icns")],
+                   check=True)
+    shutil.rmtree(iconset)
+
     info = {
         "CFBundleName": "shotit",
         "CFBundleDisplayName": "shotit",
         "CFBundleIdentifier": "com.canavjoh.shotit",
         "CFBundleExecutable": "shotit",
+        "CFBundleIconFile": "AppIcon",
         "CFBundlePackageType": "APPL",
         "CFBundleShortVersionString": "0.1.0",
         "CFBundleVersion": "1",

@@ -240,6 +240,11 @@ final class EditorModel: ObservableObject {
         return Exporter.png(img, scale: doc.scale)
     }
 
+    func clipboardPNG() -> Data? {
+        guard let img = Exporter.render(doc, pixelated: hasBlur ? pixelated : nil) else { return nil }
+        return Exporter.clipboardPNG(img, scale: doc.scale, pointSize: Settings.copyAtPointSize)
+    }
+
     func flash(_ message: String) {
         toast = message
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in

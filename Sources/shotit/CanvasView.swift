@@ -386,13 +386,13 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
     // MARK: Commands (menu items and toolbar buttons reach these through the responder chain)
 
     @objc func copy(_ sender: Any?) {
-        guard let png = model.exportPNG() else { NSSound.beep(); return }
+        guard let png = model.clipboardPNG() else { NSSound.beep(); return }
         Exporter.copy(png)
         model.flash("Copied to clipboard")
     }
 
     func copyAndClose() {
-        guard let png = model.exportPNG() else { NSSound.beep(); return }
+        guard let png = model.clipboardPNG() else { NSSound.beep(); return }
         Exporter.copy(png)
         window?.close()
     }
